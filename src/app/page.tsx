@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import Box from "@mui/material/Box";
@@ -8,6 +7,7 @@ import Typography from "@mui/material/Typography";
 import Container from "@mui/material/Container";
 import Image from "next/image";
 import { darkTheme } from "./theme";
+import DeckGame from "@/components/DeckGame";
 
 export default function DictionaryLanding() {
   return (
@@ -68,6 +68,8 @@ export default function DictionaryLanding() {
             >
               SUBTITLE
             </Typography>
+
+            <DeckGame />
           </Box>
         </Container>
       </Box>
