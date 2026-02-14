@@ -8,8 +8,9 @@ import Container from "@mui/material/Container";
 import Image from "next/image";
 import { darkTheme } from "./theme";
 import DeckGame from "@/components/DeckGame";
+import RoomChat from "@/components/ChatRoom";
 
-export default function DictionaryLanding() {
+export default function CC532CardGameHome() {
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
@@ -70,6 +71,8 @@ export default function DictionaryLanding() {
             </Typography>
 
             <DeckGame />
+
+            <RoomChat />
           </Box>
         </Container>
       </Box>
