@@ -18,7 +18,7 @@ import { useSocket } from "@/lib/useSocket";
 type Message = {
   room_id: string;
   username: string;
-  message: string;
+  messages: any;
 };
 
 const RoomChat: React.FC = () => {
@@ -61,7 +61,7 @@ const RoomChat: React.FC = () => {
 
     const handleReceive = (data: Message) => {
       console.log(
-        `Received message ${JSON.stringify(data)} '${data.message}' from ${data.username} in room ${data.room_id}`,
+        `Received message ${JSON.stringify(data)} '${data.messages.message}' from ${data.username} in room ${data.room_id}`,
       );
       setMessages((prev) => [...prev, data]);
     };
@@ -129,7 +129,7 @@ const RoomChat: React.FC = () => {
                 <ListItemText
                   primary={
                     <Typography variant="body2">
-                      <strong>{msg.username}:</strong> {msg.message}
+                      <strong>{msg.username}:</strong> {msg.messages.message}
                     </Typography>
                   }
                 />
