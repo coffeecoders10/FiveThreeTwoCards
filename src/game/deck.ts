@@ -28,3 +28,14 @@ export const createFullDeck = (): Card[] => {
   suits.forEach((suit) => ranks.forEach((rank) => deck.push({ suit, rank })));
   return deck;
 };
+
+// 532 game deck: 8-Ace for all suits (28 cards) + 7♠ + 7♥ = 30 cards total
+export const create532Deck = (): Card[] => {
+  const suits: Suit[] = ["hearts", "diamonds", "clubs", "spades"];
+  const ranks = ["8", "9", "10", "Jack", "Queen", "King", "Ace"];
+  const deck: Card[] = [];
+  suits.forEach((suit) => ranks.forEach((rank) => deck.push({ suit, rank })));
+  deck.push({ suit: "spades", rank: "7" });
+  deck.push({ suit: "hearts", rank: "7" });
+  return deck;
+};

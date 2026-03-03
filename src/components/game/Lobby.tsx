@@ -32,10 +32,10 @@ const Lobby: React.FC<LobbyProps> = ({ roomUsers, username, isHost, onStartGame 
       <Button
         variant="contained"
         color="success"
-        disabled={roomUsers.length < 2}
+        disabled={roomUsers.length !== 3}
         onClick={onStartGame}
       >
-        {roomUsers.length < 2 ? "Waiting for players..." : "Start Game"}
+        {roomUsers.length < 3 ? `Waiting for players... (${roomUsers.length}/3)` : "Start Game"}
       </Button>
     )}
 

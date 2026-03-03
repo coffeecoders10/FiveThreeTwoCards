@@ -11,9 +11,10 @@ interface MyHandProps {
   username: string;
   handCards: Record<string, Card>;
   onPlayCard: (card: Card) => void;
+  getCardPlayable?: (card: Card) => boolean;
 }
 
-const MyHand: React.FC<MyHandProps> = ({ myCards, currentTurn, username, handCards, onPlayCard }) => {
+const MyHand: React.FC<MyHandProps> = ({ myCards, currentTurn, username, handCards, onPlayCard, getCardPlayable }) => {
   const isMyTurn = currentTurn === username;
   const alreadyPlayed = handCards[username] !== undefined;
 
@@ -24,13 +25,13 @@ const MyHand: React.FC<MyHandProps> = ({ myCards, currentTurn, username, handCar
       </Typography>
       <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
         {myCards.map((card, i) => {
-          const canPlay = isMyTurn && !alreadyPlayed;
+          const canPlay = getCardPlayable ? getCardPlayable(card) : (isMyTurn && !alreadyPlayed);
           return (
             <FaceUpCard
               key={i}
               card={card}
               clickable={canPlay}
-              dimmed={!canPlay && isMyTurn}
+              dimmed={!canPlay && isMyTurn && !alreadyPlayed}
               onClick={() => onPlayCard(card)}
             />
           );

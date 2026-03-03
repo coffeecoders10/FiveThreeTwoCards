@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Box, Typography, Divider } from "@mui/material";
 import { useSocket } from "@/lib/useSocket";
 import { Suit, Card, HandRecord, SocketData } from "@/game/cardTypes";
-import { Deck, createFullDeck } from "@/game/deck";
+import { Deck, create532Deck } from "@/game/deck";
 import { handWinner } from "@/game/handLogic";
 import JoinForm from "./game/JoinForm";
 import Lobby from "./game/Lobby";
@@ -15,6 +15,9 @@ import MyHand from "./game/MyHand";
 import OtherPlayers from "./game/OtherPlayers";
 import HandHistory from "./game/HandHistory";
 import GameOverScreen from "./game/GameOverScreen";
+import TrumpSelector from "./game/TrumpSelector";
+
+type GamePhase = "lobby" | "trump_selection" | "playing";
 
 const GameRoom: React.FC = () => {
   const socketRef = useSocket();
@@ -23,13 +26,15 @@ const GameRoom: React.FC = () => {
   const [username, setUsername] = useState<string>("");
   const [joined, setJoined] = useState<boolean>(false);
   const [roomUsers, setRoomUsers] = useState<string[]>([]);
-  const [gameStarted, setGameStarted] = useState<boolean>(false);
+  const [phase, setPhase] = useState<GamePhase>("lobby");
 
   // Game state
   const [myCards, setMyCards] = useState<Card[]>([]);
   const [players, setPlayers] = useState<string[]>([]);
   const [currentTurn, setCurrentTurn] = useState<string>("");
   const [leadSuit, setLeadSuit] = useState<Suit | null>(null);
+  const [trumpSuit, setTrumpSuit] = useState<Suit | null>(null);
+  const [trumpChooser, setTrumpChooser] = useState<string>("");
   const [handCards, setHandCards] = useState<Record<string, Card>>({});
   const [scores, setScores] = useState<Record<string, number>>({});
   const [otherCardCounts, setOtherCardCounts] = useState<Record<string, number>>({});
@@ -48,9 +53,13 @@ const GameRoom: React.FC = () => {
     room: "room1",
     players: [] as string[],
     leadSuit: null as Suit | null,
+    trumpSuit: null as Suit | null,
     handCards: {} as Record<string, Card>,
     scores: {} as Record<string, number>,
     roundNumber: 1,
+    // Host-only: second half of dealt hands, held until trump is chosen
+    pendingFinalHands: {} as Record<string, Card[]>,
+    trumpChooser: "",
   });
 
   // Keep ref in sync
@@ -59,9 +68,11 @@ const GameRoom: React.FC = () => {
   useEffect(() => { stateRef.current.room = room; }, [room]);
   useEffect(() => { stateRef.current.players = players; }, [players]);
   useEffect(() => { stateRef.current.leadSuit = leadSuit; }, [leadSuit]);
+  useEffect(() => { stateRef.current.trumpSuit = trumpSuit; }, [trumpSuit]);
   useEffect(() => { stateRef.current.handCards = handCards; }, [handCards]);
   useEffect(() => { stateRef.current.scores = scores; }, [scores]);
   useEffect(() => { stateRef.current.roundNumber = roundNumber; }, [roundNumber]);
+  useEffect(() => { stateRef.current.trumpChooser = trumpChooser; }, [trumpChooser]);
 
   const isHost = roomUsers[0] === username;
   useEffect(() => { stateRef.current.isHost = roomUsers[0] === username; }, [roomUsers, username]);
@@ -74,21 +85,60 @@ const GameRoom: React.FC = () => {
 
   const startGame = () => {
     if (!socketRef.current || !joined) return;
-    const deck = new Deck(createFullDeck());
+    const deck = new Deck(create532Deck());
     deck.shuffle();
-    const hands: Record<string, Card[]> = {};
-    for (const user of roomUsers) {
-      hands[user] = deck.draw(7);
+
+    const allPlayers = stateRef.current.roomUsers;
+    // Deal first 5 cards to each player
+    const initialHands: Record<string, Card[]> = {};
+    const finalHands: Record<string, Card[]> = {};
+    for (const user of allPlayers) {
+      initialHands[user] = deck.draw(5);
+      finalHands[user] = deck.draw(5);
     }
+
+    // Pick random trump chooser
+    const chooserIdx = Math.floor(Math.random() * allPlayers.length);
+    const chooser = allPlayers[chooserIdx];
+
+    // Store second-half hands until trump is chosen
+    stateRef.current.pendingFinalHands = finalHands;
+
     socketRef.current.emit("message", {
       room_id: room,
       username,
-      socket_data: JSON.stringify({ type: "start_game", hands, leader: roomUsers[0], players: roomUsers }),
+      socket_data: JSON.stringify({
+        type: "deal_initial",
+        hands: initialHands,
+        trumpChooser: chooser,
+        players: allPlayers,
+      }),
+    });
+  };
+
+  const selectTrump = (suit: Suit) => {
+    if (!socketRef.current) return;
+    socketRef.current.emit("message", {
+      room_id: stateRef.current.room,
+      username,
+      socket_data: JSON.stringify({
+        type: "trump_selected",
+        suit,
+        leader: stateRef.current.trumpChooser,
+      }),
     });
   };
 
   const playCard = (card: Card) => {
     if (!socketRef.current || currentTurn !== username) return;
+    if (handCards[username]) return; // already played this hand
+
+    // Follow-suit enforcement: if lead suit is set and player holds that suit, must play it
+    if (leadSuit) {
+      const hasLeadSuit = myCards.some((c) => c.suit === leadSuit);
+      if (hasLeadSuit && card.suit !== leadSuit) return;
+    }
+
     setMyCards((prev) => {
       const idx = prev.findIndex((c) => c.suit === card.suit && c.rank === card.rank);
       if (idx === -1) return prev;
@@ -113,19 +163,15 @@ const GameRoom: React.FC = () => {
     const handleMessage = (data: { username: string; socket_data: SocketData }) => {
       const sd = data.socket_data;
 
-      if (sd.type === "start_game") {
+      if (sd.type === "deal_initial") {
         const me = stateRef.current.username;
         setMyCards(sd.hands[me] ?? []);
         setPlayers(sd.players);
-        const initCounts: Record<string, number> = {};
-        for (const p of sd.players) {
-          if (p !== me) initCounts[p] = 7;
-        }
-        setOtherCardCounts(initCounts);
+        setTrumpChooser(sd.trumpChooser);
+        stateRef.current.trumpChooser = sd.trumpChooser;
         const initScores: Record<string, number> = {};
         for (const p of sd.players) initScores[p] = 0;
         setScores(initScores);
-        setCurrentTurn(sd.leader);
         setLeadSuit(null);
         setHandCards({});
         setRoundNumber(1);
@@ -133,7 +179,44 @@ const GameRoom: React.FC = () => {
         setGameOver(false);
         setHistory([]);
         setHistoryOpen(false);
-        setGameStarted(true);
+        setPhase("trump_selection");
+      }
+
+      if (sd.type === "trump_selected") {
+        setTrumpSuit(sd.suit);
+        stateRef.current.trumpSuit = sd.suit;
+
+        // Only host emits deal_final
+        if (stateRef.current.isHost) {
+          const finalHands = stateRef.current.pendingFinalHands;
+          if (!socketRef.current) return;
+          socketRef.current.emit("message", {
+            room_id: stateRef.current.room,
+            username: stateRef.current.username,
+            socket_data: JSON.stringify({
+              type: "deal_final",
+              hands: finalHands,
+              trumpSuit: sd.suit,
+              leader: sd.leader,
+            }),
+          });
+        }
+      }
+
+      if (sd.type === "deal_final") {
+        const me = stateRef.current.username;
+        setMyCards((prev) => [...prev, ...(sd.hands[me] ?? [])]);
+        setTrumpSuit(sd.trumpSuit);
+        stateRef.current.trumpSuit = sd.trumpSuit;
+
+        const allPlayers = stateRef.current.players;
+        const initCounts: Record<string, number> = {};
+        for (const p of allPlayers) {
+          if (p !== me) initCounts[p] = 10;
+        }
+        setOtherCardCounts(initCounts);
+        setCurrentTurn(sd.leader);
+        setPhase("playing");
       }
 
       if (sd.type === "play_card") {
@@ -166,11 +249,12 @@ const GameRoom: React.FC = () => {
 
           if (numPlayed === allPlayers.length) {
             const currentLeadSuit = stateRef.current.leadSuit ?? card.suit;
+            const currentTrumpSuit = stateRef.current.trumpSuit ?? currentLeadSuit;
             if (stateRef.current.isHost) {
-              const winner = handWinner(next, currentLeadSuit);
+              const winner = handWinner(next, currentLeadSuit, currentTrumpSuit);
               const newScores = { ...stateRef.current.scores, [winner]: (stateRef.current.scores[winner] ?? 0) + 1 };
               const completedRound = stateRef.current.roundNumber;
-              const isLastRound = completedRound >= 7;
+              const isLastRound = completedRound >= 10;
 
               setTimeout(() => {
                 if (!socketRef.current) return;
@@ -196,7 +280,7 @@ const GameRoom: React.FC = () => {
         if (player !== stateRef.current.username) {
           setOtherCardCounts((prev) => ({
             ...prev,
-            [player]: Math.max(0, (prev[player] ?? 7) - 1),
+            [player]: Math.max(0, (prev[player] ?? 10) - 1),
           }));
         }
       }
@@ -209,10 +293,11 @@ const GameRoom: React.FC = () => {
 
         const snapshotCards = { ...stateRef.current.handCards };
         const snapshotLeadSuit = stateRef.current.leadSuit;
-        if (snapshotLeadSuit) {
+        const snapshotTrumpSuit = stateRef.current.trumpSuit;
+        if (snapshotLeadSuit && snapshotTrumpSuit) {
           setHistory((prev) => {
             if (prev.some((r) => r.round === completedRound)) return prev;
-            return [...prev, { round: completedRound, leadSuit: snapshotLeadSuit, cards: snapshotCards, winner }];
+            return [...prev, { round: completedRound, leadSuit: snapshotLeadSuit, trumpSuit: snapshotTrumpSuit, cards: snapshotCards, winner }];
           });
         }
 
@@ -246,6 +331,16 @@ const GameRoom: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socketRef]);
 
+  // Determine which cards are playable (for dimming)
+  const getCardPlayable = (card: Card): boolean => {
+    if (currentTurn !== username) return false;
+    if (handCards[username]) return false;
+    if (!leadSuit) return true;
+    const hasLeadSuit = myCards.some((c) => c.suit === leadSuit);
+    if (hasLeadSuit) return card.suit === leadSuit;
+    return true;
+  };
+
   const otherPlayers = players.filter((p) => p !== username);
 
   return (
@@ -277,7 +372,7 @@ const GameRoom: React.FC = () => {
           />
         )}
 
-        {joined && !gameStarted && (
+        {joined && phase === "lobby" && (
           <Lobby
             roomUsers={roomUsers}
             username={username}
@@ -295,9 +390,34 @@ const GameRoom: React.FC = () => {
           />
         )}
 
-        {gameStarted && !gameOver && (
+        {phase === "trump_selection" && !gameOver && (
           <>
-            <TurnBanner currentTurn={currentTurn} username={username} leadSuit={leadSuit} />
+            <Typography variant="subtitle2" color="text.secondary">
+              First 5 cards dealt. Waiting for trump selection...
+            </Typography>
+            <MyHand
+              myCards={myCards}
+              currentTurn=""
+              username={username}
+              handCards={{}}
+              onPlayCard={() => {}}
+            />
+            <TrumpSelector
+              isChooser={username === trumpChooser}
+              chooserName={trumpChooser}
+              onSelectTrump={selectTrump}
+            />
+          </>
+        )}
+
+        {phase === "playing" && !gameOver && (
+          <>
+            <TurnBanner
+              currentTurn={currentTurn}
+              username={username}
+              leadSuit={leadSuit}
+              trumpSuit={trumpSuit}
+            />
 
             {handResultMsg && (
               <Box sx={{ textAlign: "center" }}>
@@ -307,7 +427,12 @@ const GameRoom: React.FC = () => {
               </Box>
             )}
 
-            <RoundInfo roundNumber={roundNumber} scores={scores} username={username} />
+            <RoundInfo
+              roundNumber={roundNumber}
+              scores={scores}
+              username={username}
+              trumpSuit={trumpSuit}
+            />
 
             <Divider />
 
@@ -321,6 +446,7 @@ const GameRoom: React.FC = () => {
               username={username}
               handCards={handCards}
               onPlayCard={playCard}
+              getCardPlayable={getCardPlayable}
             />
 
             <Divider />
