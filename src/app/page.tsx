@@ -7,8 +7,7 @@ import Typography from "@mui/material/Typography";
 import Container from "@mui/material/Container";
 import Image from "next/image";
 import { darkTheme } from "./theme";
-import DeckGame from "@/components/DeckGame";
-import RoomChat from "@/components/ChatRoom";
+import GameRoom from "@/components/GameRoom";
 
 export default function CC532CardGameHome() {
   return (
@@ -70,9 +69,7 @@ export default function CC532CardGameHome() {
               SUBTITLE
             </Typography>
 
-            <DeckGame />
-
-            <RoomChat />
+            <GameRoom />
           </Box>
         </Container>
       </Box>
