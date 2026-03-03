@@ -140,9 +140,10 @@ const GameRoom: React.FC = () => {
       hands[user] = deck.draw(4) as Card[];
     }
 
-    socketRef.current.emit("start_game", {
+    socketRef.current.emit("message", {
       room_id: room,
-      socket_data: { hands },
+      username,
+      socket_data: JSON.stringify({ type: "start_game", hands }),
     });
   };
 
@@ -153,21 +154,22 @@ const GameRoom: React.FC = () => {
       setRoomUsers(data.users);
     };
 
-    const handleStartGame = (data: { socket_data: { hands: Record<string, Card[]> } }) => {
-      const hands = data.socket_data?.hands;
-      if (!hands) return;
-
-      setMyCards(hands[username] ?? []);
-      setOtherPlayers(Object.keys(hands).filter((u) => u !== username));
-      setGameStarted(true);
+    const handleMessage = (data: { socket_data: { type: string; hands?: Record<string, Card[]> } }) => {
+      if (data.socket_data?.type === "start_game") {
+        const hands = data.socket_data.hands;
+        if (!hands) return;
+        setMyCards(hands[username] ?? []);
+        setOtherPlayers(Object.keys(hands).filter((u) => u !== username));
+        setGameStarted(true);
+      }
     };
 
     socketRef.current.on("status", handleStatus);
-    socketRef.current.on("start_game", handleStartGame);
+    socketRef.current.on("message", handleMessage);
 
     return () => {
       socketRef.current?.off("status", handleStatus);
-      socketRef.current?.off("start_game", handleStartGame);
+      socketRef.current?.off("message", handleMessage);
     };
   }, [socketRef, username]);
 

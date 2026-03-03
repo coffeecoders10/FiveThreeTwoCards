@@ -122,7 +122,13 @@ const RoomChat: React.FC = () => {
             variant="contained"
             color="success"
             disabled={roomUsers.length < 2}
-            onClick={() => socketRef.current?.emit("start_game", { room_id: room })}
+            onClick={() =>
+              socketRef.current?.emit("message", {
+                room_id: room,
+                username,
+                socket_data: JSON.stringify({ type: "start_game" }),
+              })
+            }
           >
             {roomUsers.length < 2 ? "Waiting for players..." : "Start Game"}
           </Button>
