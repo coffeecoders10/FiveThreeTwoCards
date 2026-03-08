@@ -12,9 +12,19 @@ interface MyHandProps {
   handCards: Record<string, Card>;
   onPlayCard: (card: Card) => void;
   getCardPlayable?: (card: Card) => boolean;
+  /** When true, cards are invisible (layout preserved) — used during deal animation */
+  hidden?: boolean;
 }
 
-const MyHand: React.FC<MyHandProps> = ({ myCards, currentTurn, username, handCards, onPlayCard, getCardPlayable }) => {
+const MyHand: React.FC<MyHandProps> = ({
+  myCards,
+  currentTurn,
+  username,
+  handCards,
+  onPlayCard,
+  getCardPlayable,
+  hidden = false,
+}) => {
   const isMyTurn = currentTurn === username;
   const alreadyPlayed = handCards[username] !== undefined;
 
@@ -24,7 +34,17 @@ const MyHand: React.FC<MyHandProps> = ({ myCards, currentTurn, username, handCar
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-      <Box sx={{ position: "relative", height: 160, width: "100%", overflow: "visible" }}>
+      <Box
+        sx={{
+          position: "relative",
+          height: 160,
+          width: "100%",
+          overflow: "visible",
+          opacity: hidden ? 0 : 1,
+          pointerEvents: hidden ? "none" : "auto",
+          transition: "opacity 0.3s ease",
+        }}
+      >
         {myCards.map((card, i) => {
           const canPlay = getCardPlayable ? getCardPlayable(card) : (isMyTurn && !alreadyPlayed);
           const dimmed = !canPlay && isMyTurn && !alreadyPlayed;
