@@ -6,8 +6,10 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Container from "@mui/material/Container";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { darkTheme } from "./theme";
-import GameRoom from "@/components/GameRoom";
+
+const GameRoom = dynamic(() => import("@/components/GameRoom"), { ssr: false });
 
 export default function CC532CardGameHome() {
   return (

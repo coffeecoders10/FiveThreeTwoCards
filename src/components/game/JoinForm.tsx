@@ -14,6 +14,7 @@ interface JoinFormProps {
 const JoinForm: React.FC<JoinFormProps> = ({ username, room, onUsernameChange, onRoomChange, onJoin }) => (
   <Stack direction="row" spacing={2}>
     <TextField
+      id="username-field"
       label="Username"
       value={username}
       size="small"
@@ -22,6 +23,7 @@ const JoinForm: React.FC<JoinFormProps> = ({ username, room, onUsernameChange, o
       onKeyDown={(e) => { if (e.key === "Enter") onJoin(); }}
     />
     <TextField
+      id="room-field"
       label="Room"
       value={room}
       size="small"
