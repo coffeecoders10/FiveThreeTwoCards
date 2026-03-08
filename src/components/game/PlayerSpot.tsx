@@ -3,6 +3,7 @@
 import React from "react";
 import { Badge, Box, Typography } from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
+import FaceDownCard from "@/components/card/FaceDownCard";
 
 interface PlayerSpotProps {
   username: string;
@@ -93,18 +94,13 @@ const PlayerSpot: React.FC<PlayerSpotProps> = ({
                 position: "absolute",
                 top: 0,
                 left: "50%",
-                width: 34,
-                height: 48,
                 ml: "-17px",
-                borderRadius: "4px",
-                bgcolor: "#3a4a6b",
-                backgroundImage:
-                  "repeating-linear-gradient(45deg, #2e3d5c 0px, #2e3d5c 2px, transparent 2px, transparent 8px)",
-                boxShadow: "0 2px 4px rgba(0,0,0,0.4)",
                 transformOrigin: "bottom center",
                 transform: `rotate(${angle}deg)`,
               }}
-            />
+            >
+              <FaceDownCard height="48px" />
+            </Box>
           ))}
         </Box>
       )}
