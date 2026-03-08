@@ -12,6 +12,7 @@ import Lobby from "./game/Lobby";
 import TopHUD from "./game/TopHUD";
 import GameTable from "./game/GameTable";
 import MyHand from "./game/MyHand";
+import PlayerSpot from "./game/PlayerSpot";
 import HandHistory from "./game/HandHistory";
 import GameOverScreen from "./game/GameOverScreen";
 import TrumpSelector from "./game/TrumpSelector";
@@ -669,7 +670,7 @@ const GameRoom: React.FC = () => {
           <Typography variant="subtitle2" color="text.secondary">
             First 5 cards dealt — pick the trump suit
           </Typography>
-          <Box ref={myHandRef}>
+          <Box ref={myHandRef} sx={{ width: "100%", alignSelf: "stretch" }}>
             <MyHand
               myCards={myCards}
               currentTurn=""
@@ -710,25 +711,26 @@ const GameRoom: React.FC = () => {
           username={username}
         />
 
-        {/* Middle: table + hand, both must fit without scroll */}
+        {/* Middle: table + dock stacked from top, dead space falls to bottom */}
         <Box
           sx={{
             flex: 1,
             minHeight: 0,
             display: "flex",
             flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "flex-start",
             overflow: "hidden",
             width: "100%",
           }}
         >
-          {/* Table area — fills available space */}
+          {/* Table — natural size, does not flex-grow */}
           <Box
             sx={{
-              flex: 1,
-              minHeight: 0,
+              flexShrink: 0,
               display: "flex",
-              alignItems: "center",
               justifyContent: "center",
+              width: "100%",
             }}
           >
             <GameTable
@@ -745,38 +747,50 @@ const GameRoom: React.FC = () => {
             />
           </Box>
 
-          {/* P1 hand — compact strip, never scrolls */}
-          <Box
-            ref={myHandRef}
-            sx={{
-              flexShrink: 0,
-              py: 1.5,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 1,
-            }}
-          >
-            <MyHand
-              myCards={myCards}
-              currentTurn={currentTurn}
-              username={username}
-              handCards={handCards}
-              onPlayCard={playCard}
-              getCardPlayable={getCardPlayable}
-              hidden={dealingAnimation === "final"}
-            />
+          {/* Stacked dock: avatar row above card fan — flexShrink:0, sits directly below table */}
+          <Box sx={{ flexShrink: 0, width: "100%", pt: 1 }}>
+            {/* Avatar row — centered */}
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                pb: 0.5,
+              }}
+            >
+              <PlayerSpot
+                isSelf
+                horizontal
+                username={username}
+                cardCount={0}
+                score={scores[username] ?? 0}
+                isCurrentTurn={currentTurn === username}
+              />
+            </Box>
 
-            {history.length > 0 && (
-              <Box sx={{ width: "100%", maxWidth: 600, px: 2 }}>
-                <HandHistory
-                  history={history}
-                  historyOpen={historyOpen}
-                  onToggle={() => setHistoryOpen((o) => !o)}
-                />
-              </Box>
-            )}
+            {/* Card fan — full width */}
+            <Box ref={myHandRef} sx={{ width: "100%" }}>
+              <MyHand
+                myCards={myCards}
+                currentTurn={currentTurn}
+                username={username}
+                handCards={handCards}
+                onPlayCard={playCard}
+                getCardPlayable={getCardPlayable}
+                hidden={dealingAnimation === "final"}
+              />
+            </Box>
           </Box>
+
+          {history.length > 0 && (
+            <Box sx={{ flexShrink: 0, width: "100%", px: 2, pt: 1 }}>
+              <HandHistory
+                history={history}
+                historyOpen={historyOpen}
+                onToggle={() => setHistoryOpen((o) => !o)}
+              />
+            </Box>
+          )}
         </Box>
       </Box>
       {animationOverlays}

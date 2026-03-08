@@ -42,7 +42,7 @@ const GameTable = forwardRef<HTMLDivElement, GameTableProps>(
         ref={ref}
         sx={{
           position: "relative",
-          width: "min(calc(100vw - 32px), calc(100vh - 180px), 900px)",
+          width: "min(calc(100vw - 32px), calc(100vh - 280px), 900px)",
           aspectRatio: "1",
           mx: "auto",
         }}
@@ -130,6 +130,7 @@ const GameTable = forwardRef<HTMLDivElement, GameTableProps>(
               cardCount={otherCardCounts[p2] ?? 0}
               score={scores[p2] ?? 0}
               isCurrentTurn={currentTurn === p2}
+              compact
             />
           </Box>
         )}
@@ -149,28 +150,10 @@ const GameTable = forwardRef<HTMLDivElement, GameTableProps>(
               cardCount={otherCardCounts[p3] ?? 0}
               score={scores[p3] ?? 0}
               isCurrentTurn={currentTurn === p3}
+              compact
             />
           </Box>
         )}
-
-        {/* P1 (self) avatar — bottom-center */}
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: "6%",
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 10,
-          }}
-        >
-          <PlayerSpot
-            username={username}
-            cardCount={0}
-            score={scores[username] ?? 0}
-            isCurrentTurn={currentTurn === username}
-            isSelf
-          />
-        </Box>
 
         {/* Center — played cards in triangular spread */}
         <Box

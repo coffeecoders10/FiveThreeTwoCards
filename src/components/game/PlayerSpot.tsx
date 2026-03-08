@@ -12,6 +12,10 @@ interface PlayerSpotProps {
   isCurrentTurn: boolean;
   /** When true, renders the "You" variant (no card fan, different icon color) */
   isSelf?: boolean;
+  /** When true (only applies to isSelf), renders avatar + name inline horizontally */
+  horizontal?: boolean;
+  /** When true, renders a smaller avatar and card fan — for opponent spots inside the table */
+  compact?: boolean;
 }
 
 const MAX_NAME_LEN = 10;
@@ -22,6 +26,8 @@ const PlayerSpot: React.FC<PlayerSpotProps> = ({
   score,
   isCurrentTurn,
   isSelf = false,
+  horizontal = false,
+  compact = false,
 }) => {
   const displayName =
     username.length > MAX_NAME_LEN ? username.slice(0, MAX_NAME_LEN) + "…" : username;
@@ -29,6 +35,51 @@ const PlayerSpot: React.FC<PlayerSpotProps> = ({
   const fanCount = isSelf ? 0 : Math.min(cardCount, 5);
   const mid = (fanCount - 1) / 2;
   const angles = Array.from({ length: fanCount }, (_, i) => (i - mid) * 10);
+
+  if (isSelf && horizontal) {
+    return (
+      <Box sx={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 1 }}>
+        <Badge
+          badgeContent={score}
+          showZero
+          color="primary"
+          anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        >
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              bgcolor: "#2a2a3a",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: isCurrentTurn
+                ? "0 0 0 3px #a07666, 0 0 14px rgba(160,118,102,0.55)"
+                : "none",
+              transition: "box-shadow 0.3s ease",
+            }}
+          >
+            <PersonIcon sx={{ fontSize: 24, color: "primary.main" }} />
+          </Box>
+        </Badge>
+        <Typography
+          variant="caption"
+          sx={{
+            color: isCurrentTurn ? "primary.main" : "text.secondary",
+            fontWeight: isCurrentTurn ? 700 : 400,
+            maxWidth: 100,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            lineHeight: 1.2,
+          }}
+        >
+          {displayName}
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
@@ -41,8 +92,8 @@ const PlayerSpot: React.FC<PlayerSpotProps> = ({
       >
         <Box
           sx={{
-            width: 52,
-            height: 52,
+            width: compact ? 40 : 52,
+            height: compact ? 40 : 52,
             borderRadius: 2,
             bgcolor: "#2a2a3a",
             display: "flex",
@@ -56,7 +107,7 @@ const PlayerSpot: React.FC<PlayerSpotProps> = ({
         >
           <PersonIcon
             sx={{
-              fontSize: 30,
+              fontSize: compact ? 22 : 30,
               color: isSelf ? "primary.main" : "text.secondary",
             }}
           />
@@ -86,7 +137,7 @@ const PlayerSpot: React.FC<PlayerSpotProps> = ({
 
       {/* Face-down card fan */}
       {fanCount > 0 && (
-        <Box sx={{ position: "relative", width: 60, height: 52, mt: 0.5 }}>
+        <Box sx={{ position: "relative", width: compact ? 48 : 60, height: compact ? 36 : 52, mt: 0.5 }}>
           {angles.map((angle, i) => (
             <Box
               key={i}
@@ -94,12 +145,12 @@ const PlayerSpot: React.FC<PlayerSpotProps> = ({
                 position: "absolute",
                 top: 0,
                 left: "50%",
-                ml: "-17px",
+                ml: compact ? "-13px" : "-17px",
                 transformOrigin: "bottom center",
                 transform: `rotate(${angle}deg)`,
               }}
             >
-              <FaceDownCard height="48px" />
+              <FaceDownCard height={compact ? "32px" : "48px"} />
             </Box>
           ))}
         </Box>

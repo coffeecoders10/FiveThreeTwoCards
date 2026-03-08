@@ -31,7 +31,7 @@ const CenterPlay = forwardRef<HTMLDivElement, CenterPlayProps>(
     const hasCards = Object.keys(handCards).length > 0;
 
     return (
-      <Box ref={ref} sx={{ position: "relative", width: 220, height: 200 }}>
+      <Box ref={ref} sx={{ position: "relative", width: 165, height: 150 }}>
         {hasCards &&
           Object.entries(handCards).map(([player, card]) => {
             const pos = positions[player];
@@ -53,7 +53,7 @@ const CenterPlay = forwardRef<HTMLDivElement, CenterPlayProps>(
                   gap: 0.4,
                 }}
               >
-                <FaceUpCard card={card} />
+                <FaceUpCard card={card} height="75px" />
                 <Typography
                   variant="caption"
                   sx={{ color: "rgba(255,255,255,0.6)", fontSize: "0.6rem" }}

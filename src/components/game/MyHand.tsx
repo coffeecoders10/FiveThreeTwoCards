@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 import { Card } from "@/game/cardTypes";
 import FaceUpCard from "@/components/card/FaceUpCard";
@@ -28,12 +28,24 @@ const MyHand: React.FC<MyHandProps> = ({
   const isMyTurn = currentTurn === username;
   const alreadyPlayed = handCards[username] !== undefined;
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setContainerWidth(entry.contentRect.width);
+    });
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
   const n = myCards.length;
-  const cardStep = 60;
+  const cardStep = n <= 1 ? 0 : Math.min(60, (containerWidth - 80) / n);
   const fanHalf = Math.min(10, n * 1.2);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+    <Box ref={containerRef} sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, width: "100%" }}>
       <Box
         sx={{
           position: "relative",

@@ -26,9 +26,10 @@ interface FaceUpCardProps {
   clickable?: boolean;
   onClick?: () => void;
   dimmed?: boolean;
+  height?: string | number;
 }
 
-const FaceUpCard: React.FC<FaceUpCardProps> = ({ card, clickable, onClick, dimmed }) => (
+const FaceUpCard: React.FC<FaceUpCardProps> = ({ card, clickable, onClick, dimmed, height = "100px" }) => (
   <Box
     onClick={clickable ? onClick : undefined}
     sx={{
@@ -45,7 +46,7 @@ const FaceUpCard: React.FC<FaceUpCardProps> = ({ card, clickable, onClick, dimme
         : {},
     }}
   >
-    <PlayingCard card={toCardCode(card)} height="100px" />
+    <PlayingCard card={toCardCode(card)} height={typeof height === "number" ? `${height}px` : height} />
   </Box>
 );
 
