@@ -31,12 +31,11 @@ const FaceUpCard: React.FC<FaceUpCardProps> = ({ card, clickable, onClick, dimme
       color: isRed(card.suit) ? "#c0392b" : "#1a1a1a",
       userSelect: "none",
       cursor: clickable ? "pointer" : "default",
-      opacity: dimmed ? 0.4 : 1,
+      filter: dimmed ? "grayscale(1) brightness(0.55)" : "none",
       boxShadow: 3,
       transition: "transform 0.1s, box-shadow 0.1s",
       "&:hover": clickable
         ? {
-            transform: "translateY(-6px)",
             boxShadow: "0 6px 20px rgba(160,118,102,0.6)",
           }
         : {},

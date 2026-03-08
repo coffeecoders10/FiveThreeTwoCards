@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Box, Stack } from "@mui/material";
+import { Box } from "@mui/material";
 import { Card } from "@/game/cardTypes";
 import FaceUpCard from "@/components/card/FaceUpCard";
 
@@ -18,22 +18,47 @@ const MyHand: React.FC<MyHandProps> = ({ myCards, currentTurn, username, handCar
   const isMyTurn = currentTurn === username;
   const alreadyPlayed = handCards[username] !== undefined;
 
+  const n = myCards.length;
+  const cardStep = 60;
+  const fanHalf = Math.min(10, n * 1.2);
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="center">
+      <Box sx={{ position: "relative", height: 160, width: "100%", overflow: "visible" }}>
         {myCards.map((card, i) => {
           const canPlay = getCardPlayable ? getCardPlayable(card) : (isMyTurn && !alreadyPlayed);
+          const dimmed = !canPlay && isMyTurn && !alreadyPlayed;
+          const offset = (i - (n - 1) / 2) * cardStep;
+          const angle = n <= 1 ? 0 : -fanHalf + (i / (n - 1)) * (fanHalf * 2);
+          const basePop = canPlay ? -14 : 0;
+          const zIndex = Math.floor(n / 2) - Math.abs(i - Math.floor(n / 2)) + 1;
+
           return (
-            <FaceUpCard
+            <Box
               key={i}
-              card={card}
-              clickable={canPlay}
-              dimmed={!canPlay && isMyTurn && !alreadyPlayed}
-              onClick={() => onPlayCard(card)}
-            />
+              sx={{
+                position: "absolute",
+                bottom: 0,
+                left: `calc(50% + ${offset}px)`,
+                transformOrigin: "bottom center",
+                transform: `translateX(-50%) rotate(${angle}deg) translateY(${basePop}px)`,
+                transition: "transform 0.18s ease",
+                zIndex,
+                "&:hover": canPlay
+                  ? { transform: `translateX(-50%) rotate(${angle}deg) translateY(-28px)` }
+                  : {},
+              }}
+            >
+              <FaceUpCard
+                card={card}
+                clickable={canPlay}
+                dimmed={dimmed}
+                onClick={() => onPlayCard(card)}
+              />
+            </Box>
           );
         })}
-      </Stack>
+      </Box>
     </Box>
   );
 };
