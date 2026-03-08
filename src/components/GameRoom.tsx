@@ -1,18 +1,17 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Box, Typography, Divider } from "@mui/material";
+import Image from "next/image";
+import { Box, Typography } from "@mui/material";
 import { useSocket } from "@/lib/useSocket";
 import { Suit, Card, HandRecord, SocketData } from "@/game/cardTypes";
 import { Deck, create532Deck } from "@/game/deck";
 import { handWinner } from "@/game/handLogic";
 import JoinForm from "./game/JoinForm";
 import Lobby from "./game/Lobby";
-import TurnBanner from "./game/TurnBanner";
-import RoundInfo from "./game/RoundInfo";
-import HandTable from "./game/HandTable";
+import TopHUD from "./game/TopHUD";
+import GameTable from "./game/GameTable";
 import MyHand from "./game/MyHand";
-import OtherPlayers from "./game/OtherPlayers";
 import HandHistory from "./game/HandHistory";
 import GameOverScreen from "./game/GameOverScreen";
 import TrumpSelector from "./game/TrumpSelector";
@@ -341,28 +340,50 @@ const GameRoom: React.FC = () => {
     return true;
   };
 
-  const otherPlayers = players.filter((p) => p !== username);
-
-  return (
-    <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+  // ── Pre-game screens ──────────────────────────────────────────────────────
+  if (!joined) {
+    return (
       <Box
         sx={{
-          width: "100%",
-          maxWidth: 700,
-          p: 3,
+          height: "100vh",
+          overflow: "hidden",
           display: "flex",
           flexDirection: "column",
-          gap: 2,
-          borderRadius: 2,
-          boxShadow: 4,
-          bgcolor: "background.paper",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "background.default",
+          gap: 4,
+          px: 2,
         }}
       >
-        <Typography variant="h5" fontWeight={600}>
-          532 Cards
-        </Typography>
+        {/* Hero section */}
+        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
+          <Image
+            src="/coffeecoders_logo.png"
+            alt="Coffee Coders"
+            width={72}
+            height={72}
+            style={{ objectFit: "contain" }}
+          />
+          <Typography variant="h3" fontWeight={800} color="primary.main" lineHeight={1}>
+            532 Cards
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            A card game for 3 players
+          </Typography>
+        </Box>
 
-        {!joined && (
+        {/* Input card */}
+        <Box
+          sx={{
+            p: 4,
+            borderRadius: 3,
+            bgcolor: "background.paper",
+            boxShadow: 6,
+            width: "100%",
+            maxWidth: 400,
+          }}
+        >
           <JoinForm
             username={username}
             room={room}
@@ -370,106 +391,193 @@ const GameRoom: React.FC = () => {
             onRoomChange={setRoom}
             onJoin={joinRoom}
           />
-        )}
+        </Box>
+      </Box>
+    );
+  }
 
-        {joined && phase === "lobby" && (
+  if (joined && phase === "lobby") {
+    return (
+      <Box
+        sx={{
+          height: "100vh",
+          overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "background.default",
+          px: 2,
+        }}
+      >
+        <Box
+          sx={{
+            p: 4,
+            borderRadius: 3,
+            bgcolor: "background.paper",
+            boxShadow: 6,
+            width: "100%",
+            maxWidth: 440,
+          }}
+        >
+          <Typography variant="h5" fontWeight={700} gutterBottom>
+            532 Cards
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2.5 }}>
+            Room: {room}
+          </Typography>
           <Lobby
             roomUsers={roomUsers}
             username={username}
             isHost={isHost}
             onStartGame={startGame}
           />
-        )}
+        </Box>
+      </Box>
+    );
+  }
 
-        {gameOver && (
+  if (gameOver) {
+    return (
+      <Box
+        sx={{
+          height: "100vh",
+        overflow: "hidden",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "background.default",
+          p: 2,
+        }}
+      >
+        <Box sx={{ width: "100%", maxWidth: 600 }}>
           <GameOverScreen
             finalScores={finalScores}
             history={history}
             historyOpen={historyOpen}
             onToggle={() => setHistoryOpen((o) => !o)}
           />
-        )}
+        </Box>
+      </Box>
+    );
+  }
 
-        {phase === "trump_selection" && !gameOver && (
-          <>
-            <Typography variant="subtitle2" color="text.secondary">
-              First 5 cards dealt. Waiting for trump selection...
-            </Typography>
-            <MyHand
-              myCards={myCards}
-              currentTurn=""
-              username={username}
-              handCards={{}}
-              onPlayCard={() => {}}
-            />
-            <TrumpSelector
-              isChooser={username === trumpChooser}
-              chooserName={trumpChooser}
-              onSelectTrump={selectTrump}
-            />
-          </>
-        )}
+  // ── Trump selection ────────────────────────────────────────────────────────
+  if (phase === "trump_selection") {
+    return (
+      <Box
+        sx={{
+          height: "100vh",
+        overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "background.default",
+          gap: 3,
+          p: 3,
+        }}
+      >
+        <Typography variant="subtitle2" color="text.secondary">
+          First 5 cards dealt — pick the trump suit
+        </Typography>
+        <MyHand
+          myCards={myCards}
+          currentTurn=""
+          username={username}
+          handCards={{}}
+          onPlayCard={() => {}}
+        />
+        <TrumpSelector
+          isChooser={username === trumpChooser}
+          chooserName={trumpChooser}
+          onSelectTrump={selectTrump}
+        />
+      </Box>
+    );
+  }
 
-        {phase === "playing" && !gameOver && (
-          <>
-            <TurnBanner
-              currentTurn={currentTurn}
-              username={username}
-              leadSuit={leadSuit}
-              trumpSuit={trumpSuit}
-            />
+  // ── Playing phase ──────────────────────────────────────────────────────────
+  return (
+    <Box
+      sx={{
+        height: "100vh",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        bgcolor: "background.default",
+      }}
+    >
+      {/* Top info bar */}
+      <TopHUD
+        roundNumber={roundNumber}
+        trumpSuit={trumpSuit}
+        currentTurn={currentTurn}
+        username={username}
+      />
 
-            {handResultMsg && (
-              <Box sx={{ textAlign: "center" }}>
-                <Typography variant="subtitle1" color="success.main" fontWeight={600}>
-                  {handResultMsg}
-                </Typography>
-              </Box>
-            )}
+      {/* Middle: table + hand, both must fit without scroll */}
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          width: "100%",
+        }}
+      >
+        {/* Table area — fills available space */}
+        <Box
+          sx={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <GameTable
+            players={players}
+            username={username}
+            otherCardCounts={otherCardCounts}
+            scores={scores}
+            currentTurn={currentTurn}
+            handCards={handCards}
+            handResultMsg={handResultMsg}
+          />
+        </Box>
 
-            <RoundInfo
-              roundNumber={roundNumber}
-              scores={scores}
-              username={username}
-              trumpSuit={trumpSuit}
-            />
+        {/* P1 hand — compact strip, never scrolls */}
+        <Box
+          sx={{
+            flexShrink: 0,
+            py: 1.5,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <MyHand
+            myCards={myCards}
+            currentTurn={currentTurn}
+            username={username}
+            handCards={handCards}
+            onPlayCard={playCard}
+            getCardPlayable={getCardPlayable}
+          />
 
-            <Divider />
-
-            {Object.keys(handCards).length > 0 && <HandTable handCards={handCards} />}
-
-            <Divider />
-
-            <MyHand
-              myCards={myCards}
-              currentTurn={currentTurn}
-              username={username}
-              handCards={handCards}
-              onPlayCard={playCard}
-              getCardPlayable={getCardPlayable}
-            />
-
-            <Divider />
-
-            <OtherPlayers
-              otherPlayers={otherPlayers}
-              currentTurn={currentTurn}
-              handCards={handCards}
-              otherCardCounts={otherCardCounts}
-            />
-
-            {history.length > 0 && (
-              <>
-                <Divider />
-                <HandHistory
-                  history={history}
-                  historyOpen={historyOpen}
-                  onToggle={() => setHistoryOpen((o) => !o)}
-                />
-              </>
-            )}
-          </>
-        )}
+          {history.length > 0 && (
+            <Box sx={{ width: "100%", maxWidth: 600, px: 2 }}>
+              <HandHistory
+                history={history}
+                historyOpen={historyOpen}
+                onToggle={() => setHistoryOpen((o) => !o)}
+              />
+            </Box>
+          )}
+        </Box>
       </Box>
     </Box>
   );

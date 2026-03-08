@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Box, Stack, Typography } from "@mui/material";
+import { Box, Stack } from "@mui/material";
 import { Card } from "@/game/cardTypes";
 import FaceUpCard from "@/components/card/FaceUpCard";
 
@@ -19,11 +19,8 @@ const MyHand: React.FC<MyHandProps> = ({ myCards, currentTurn, username, handCar
   const alreadyPlayed = handCards[username] !== undefined;
 
   return (
-    <Box>
-      <Typography variant="subtitle1" fontWeight={600} gutterBottom>
-        Your Hand ({myCards.length} cards)
-      </Typography>
-      <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="center">
         {myCards.map((card, i) => {
           const canPlay = getCardPlayable ? getCardPlayable(card) : (isMyTurn && !alreadyPlayed);
           return (
