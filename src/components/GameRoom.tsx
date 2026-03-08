@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, useTheme, useMediaQuery } from "@mui/material";
 import { useSocket } from "@/lib/useSocket";
 import { Suit, Card, HandRecord, SocketData } from "@/game/cardTypes";
 import { Deck, create532Deck } from "@/game/deck";
@@ -41,6 +41,8 @@ type FlyingCardEntry = {
 };
 
 const GameRoom: React.FC = () => {
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up("md"));
   const socketRef = useSocket();
 
   const [room, setRoom] = useState<string>("room1");
@@ -711,79 +713,112 @@ const GameRoom: React.FC = () => {
           username={username}
         />
 
-        {/* Middle: table + dock stacked from top, dead space falls to bottom */}
+        {/* Row: game column + optional desktop history column */}
         <Box
           sx={{
             flex: 1,
             minHeight: 0,
             display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "flex-start",
+            flexDirection: "row",
             overflow: "hidden",
             width: "100%",
           }}
         >
-          {/* Table — natural size, does not flex-grow */}
+          {/* Game column — table + dock + mobile history */}
           <Box
             sx={{
-              flexShrink: 0,
+              flex: 1,
+              minHeight: 0,
               display: "flex",
-              justifyContent: "center",
-              width: "100%",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              overflow: "hidden",
             }}
           >
-            <GameTable
-              ref={gameTableRef}
-              centerPlayRef={centerPlayRef}
-              players={players}
-              username={username}
-              otherCardCounts={otherCardCounts}
-              scores={scores}
-              currentTurn={currentTurn}
-              handCards={handCards}
-              handResultMsg={handResultMsg}
-              flyingPlayers={flyingPlayers}
-            />
-          </Box>
-
-          {/* Stacked dock: avatar row above card fan — flexShrink:0, sits directly below table */}
-          <Box sx={{ flexShrink: 0, width: "100%", pt: 1 }}>
-            {/* Avatar row — centered */}
+            {/* Table — natural size, does not flex-grow */}
             <Box
               sx={{
+                flexShrink: 0,
                 display: "flex",
                 justifyContent: "center",
-                alignItems: "center",
-                pb: 0.5,
+                width: "100%",
               }}
             >
-              <PlayerSpot
-                isSelf
-                horizontal
+              <GameTable
+                ref={gameTableRef}
+                centerPlayRef={centerPlayRef}
+                players={players}
                 username={username}
-                cardCount={0}
-                score={scores[username] ?? 0}
-                isCurrentTurn={currentTurn === username}
+                otherCardCounts={otherCardCounts}
+                scores={scores}
+                currentTurn={currentTurn}
+                handCards={handCards}
+                handResultMsg={handResultMsg}
+                flyingPlayers={flyingPlayers}
               />
             </Box>
 
-            {/* Card fan — full width */}
-            <Box ref={myHandRef} sx={{ width: "100%" }}>
-              <MyHand
-                myCards={myCards}
-                currentTurn={currentTurn}
-                username={username}
-                handCards={handCards}
-                onPlayCard={playCard}
-                getCardPlayable={getCardPlayable}
-                hidden={dealingAnimation === "final"}
-              />
+            {/* Stacked dock: avatar row above card fan — flexShrink:0, sits directly below table */}
+            <Box sx={{ flexShrink: 0, width: "100%", pt: 1 }}>
+              {/* Avatar row — centered */}
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  pb: 0.5,
+                }}
+              >
+                <PlayerSpot
+                  isSelf
+                  horizontal
+                  username={username}
+                  cardCount={0}
+                  score={scores[username] ?? 0}
+                  isCurrentTurn={currentTurn === username}
+                />
+              </Box>
+
+              {/* Card fan — full width */}
+              <Box ref={myHandRef} sx={{ width: "100%" }}>
+                <MyHand
+                  myCards={myCards}
+                  currentTurn={currentTurn}
+                  username={username}
+                  handCards={handCards}
+                  onPlayCard={playCard}
+                  getCardPlayable={getCardPlayable}
+                  hidden={dealingAnimation === "final"}
+                />
+              </Box>
             </Box>
+
+            {/* Mobile: collapsible below hand fan */}
+            {history.length > 0 && !isDesktop && (
+              <Box sx={{ flexShrink: 0, width: "100%", px: 2, pt: 1 }}>
+                <HandHistory
+                  history={history}
+                  historyOpen={historyOpen}
+                  onToggle={() => setHistoryOpen((o) => !o)}
+                />
+              </Box>
+            )}
           </Box>
 
-          {history.length > 0 && (
-            <Box sx={{ flexShrink: 0, width: "100%", px: 2, pt: 1 }}>
+          {/* Desktop: history column — natural sibling, no z-index needed */}
+          {history.length > 0 && isDesktop && (
+            <Box
+              sx={{
+                width: 320,
+                flexShrink: 0,
+                overflowY: "auto",
+                borderLeft: "1px solid",
+                borderColor: "divider",
+                bgcolor: "background.paper",
+                p: 2,
+              }}
+            >
               <HandHistory
                 history={history}
                 historyOpen={historyOpen}
