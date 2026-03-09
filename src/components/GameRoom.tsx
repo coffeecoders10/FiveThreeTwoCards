@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Box, Typography, useTheme, useMediaQuery } from "@mui/material";
+import { motion, AnimatePresence } from "framer-motion";
 import { useSocket } from "@/lib/useSocket";
 import { Suit, Card, HandRecord, SocketData } from "@/game/cardTypes";
 import { Deck, create532Deck } from "@/game/deck";
@@ -73,6 +74,12 @@ const GameRoom: React.FC = () => {
   const [flyingCards, setFlyingCards] = useState<FlyingCardEntry[]>([]);
   const [flyingPlayers, setFlyingPlayers] = useState<Set<string>>(new Set());
 
+  // UI transition state
+  const [uiPhase, setUiPhase] = useState<"lobby" | "game">("lobby");
+  const [showTrumpOverlay, setShowTrumpOverlay] = useState(false);
+  const [gameTableVisible, setGameTableVisible] = useState(false);
+  const [pendingFinalDeal, setPendingFinalDeal] = useState(false);
+
   // DOM refs for animation position calculation
   const gameTableRef = useRef<HTMLDivElement>(null);
   const myHandRef = useRef<HTMLDivElement>(null);
@@ -114,6 +121,16 @@ const GameRoom: React.FC = () => {
 
   const isHost = roomUsers[0] === username;
   useEffect(() => { stateRef.current.isHost = roomUsers[0] === username; }, [roomUsers, username]);
+
+  // After the trump overlay exits, start the final deal animation
+  useEffect(() => {
+    if (!pendingFinalDeal || showTrumpOverlay) return;
+    const t = setTimeout(() => {
+      setDealingAnimation("final");
+      setPendingFinalDeal(false);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [pendingFinalDeal, showTrumpOverlay]);
 
   const joinRoom = () => {
     if (!socketRef.current || !room || !username) return;
@@ -203,6 +220,7 @@ const GameRoom: React.FC = () => {
       stateRef.current.pendingInitialCards = pending.myCards;
       setDealingAnimation(null);
       setPhase("trump_selection");
+      setShowTrumpOverlay(true);
     } else {
       setOtherCardCounts(pending.otherCounts);
       // Only reset turn to leader if no card has been played yet (guards against race condition
@@ -258,7 +276,8 @@ const GameRoom: React.FC = () => {
         setGameOver(false);
         setHistory([]);
         setHistoryOpen(false);
-        // Trigger dealing animation — phase transition deferred to handleDealComplete
+        // Transition to game table view, then deal once it's visible
+        setUiPhase("game");
         setDealingAnimation("initial");
       }
 
@@ -300,8 +319,9 @@ const GameRoom: React.FC = () => {
           otherCounts: initCounts,
           leader: sd.leader,
         };
-        // Trigger dealing animation — phase transition deferred to handleDealComplete
-        setDealingAnimation("final");
+        // Dismiss trump overlay first — deal starts after it fully exits
+        setPendingFinalDeal(true);
+        setShowTrumpOverlay(false);
       }
 
       if (sd.type === "play_card") {
@@ -474,13 +494,9 @@ const GameRoom: React.FC = () => {
     return true;
   };
 
-  // ── Render helpers ─────────────────────────────────────────────────────────
-
-  // Animation overlays — rendered on top of whatever phase screen is showing
-  const animationOverlays = (
-    <>
-      {dealingAnimation && players.length > 0 && (() => {
-        // Compute rects now (at render time, using window dimensions as fallback)
+  // ── Dealing animation overlay (only shown once the game table is visible) ──
+  const dealingOverlay = dealingAnimation && players.length > 0 && gameTableVisible
+    ? (() => {
         const tableRect = gameTableRef.current?.getBoundingClientRect() ?? {
           left: window.innerWidth * 0.1,
           right: window.innerWidth * 0.9,
@@ -505,7 +521,280 @@ const GameRoom: React.FC = () => {
             onComplete={handleDealComplete}
           />
         );
-      })()}
+      })()
+    : null;
+
+  // ── Single return tree ────────────────────────────────────────────────────
+  return (
+    <Box sx={{ height: "100vh", overflow: "hidden", position: "relative", bgcolor: "background.default" }}>
+
+      {/* ── Pre-game screens ── */}
+      <AnimatePresence mode="wait">
+        {uiPhase === "lobby" && !joined && (
+          <motion.div
+            key="join"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.45, ease: "easeOut" }}
+            style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 32, padding: "0 16px" }}
+          >
+            <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
+              <Image
+                src="/coffeecoders_logo.png"
+                alt="Coffee Coders"
+                width={72}
+                height={72}
+                style={{ objectFit: "contain" }}
+              />
+              <Typography variant="h3" fontWeight={800} color="primary.main" lineHeight={1}>
+                532 Cards
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                A card game for 3 players
+              </Typography>
+            </Box>
+            <Box sx={{ p: 4, borderRadius: 3, bgcolor: "background.paper", boxShadow: 6, width: "100%", maxWidth: 400 }}>
+              <JoinForm
+                username={username}
+                room={room}
+                onUsernameChange={setUsername}
+                onRoomChange={setRoom}
+                onJoin={joinRoom}
+              />
+            </Box>
+          </motion.div>
+        )}
+
+        {uiPhase === "lobby" && joined && (
+          <motion.div
+            key="lobby"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.45, ease: "easeOut" }}
+            style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 16px" }}
+          >
+            <Box sx={{ p: 4, borderRadius: 3, bgcolor: "background.paper", boxShadow: 6, width: "100%", maxWidth: 440 }}>
+              <Typography variant="h5" fontWeight={700} gutterBottom>
+                532 Cards
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2.5 }}>
+                Room: {room}
+              </Typography>
+              <Lobby
+                roomUsers={roomUsers}
+                username={username}
+                isHost={isHost}
+                onStartGame={startGame}
+              />
+            </Box>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Game table (mounted once uiPhase === "game", stays for the whole game) ── */}
+      {uiPhase === "game" && !gameOver && (
+        <motion.div
+          key="game-table"
+          initial={{ opacity: 0, scale: 1.02 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+          onAnimationComplete={() => setGameTableVisible(true)}
+          style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center" }}
+        >
+          {/* Top info bar */}
+          <TopHUD
+            roundNumber={roundNumber}
+            trumpSuit={trumpSuit}
+            currentTurn={currentTurn}
+            username={username}
+          />
+
+          {/* Row: game column + optional desktop history column */}
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "row",
+              overflow: "hidden",
+              width: "100%",
+            }}
+          >
+            {/* Game column — table + dock + mobile history */}
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "flex-start",
+                overflow: "hidden",
+              }}
+            >
+              {/* Table */}
+              <Box sx={{ flexShrink: 0, display: "flex", justifyContent: "center", width: "100%" }}>
+                <GameTable
+                  ref={gameTableRef}
+                  centerPlayRef={centerPlayRef}
+                  players={players}
+                  username={username}
+                  otherCardCounts={otherCardCounts}
+                  scores={scores}
+                  currentTurn={currentTurn}
+                  handCards={handCards}
+                  handResultMsg={handResultMsg}
+                  flyingPlayers={flyingPlayers}
+                />
+              </Box>
+
+              {/* Dock: avatar row + card fan — lifted above scrim during trump selection */}
+              <Box sx={{ flexShrink: 0, width: "100%", pt: 1, position: "relative", zIndex: showTrumpOverlay ? 205 : "auto" }}>
+                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", pb: 0.5 }}>
+                  <PlayerSpot
+                    isSelf
+                    horizontal
+                    username={username}
+                    cardCount={0}
+                    score={scores[username] ?? 0}
+                    isCurrentTurn={currentTurn === username}
+                  />
+                </Box>
+                <Box ref={myHandRef} sx={{ width: "100%" }}>
+                  <MyHand
+                    myCards={myCards}
+                    currentTurn={phase === "trump_selection" ? "" : currentTurn}
+                    username={username}
+                    handCards={phase === "trump_selection" ? {} : handCards}
+                    onPlayCard={phase === "trump_selection" ? () => {} : playCard}
+                    getCardPlayable={phase === "trump_selection" ? undefined : getCardPlayable}
+                    hidden={dealingAnimation === "final"}
+                  />
+                </Box>
+              </Box>
+
+              {/* Mobile: collapsible history */}
+              {history.length > 0 && !isDesktop && (
+                <Box sx={{ flexShrink: 0, width: "100%", px: 2, pt: 1 }}>
+                  <HandHistory
+                    history={history}
+                    historyOpen={historyOpen}
+                    onToggle={() => setHistoryOpen((o) => !o)}
+                  />
+                </Box>
+              )}
+            </Box>
+
+            {/* Desktop: history column */}
+            {history.length > 0 && isDesktop && (
+              <Box
+                sx={{
+                  width: 320,
+                  flexShrink: 0,
+                  overflowY: "auto",
+                  borderLeft: "1px solid",
+                  borderColor: "divider",
+                  bgcolor: "background.paper",
+                  p: 2,
+                }}
+              >
+                <HandHistory
+                  history={history}
+                  historyOpen={historyOpen}
+                  onToggle={() => setHistoryOpen((o) => !o)}
+                />
+              </Box>
+            )}
+          </Box>
+
+          {/* ── Trump selection overlay ── */}
+          <AnimatePresence>
+            {showTrumpOverlay && (
+              <>
+                {/* Backdrop scrim */}
+                <motion.div
+                  key="trump-scrim"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.35 }}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 200,
+                    backdropFilter: "blur(10px)",
+                    WebkitBackdropFilter: "blur(10px)",
+                    background: "rgba(0,0,0,0.38)",
+                    pointerEvents: "none",
+                  }}
+                />
+                {/* Modal card */}
+                <motion.div
+                  key="trump-modal"
+                  initial={{ opacity: 0, scale: 0.88, y: 24 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.92, y: -16 }}
+                  transition={{ type: "spring", bounce: 0.25, duration: 0.45 }}
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    zIndex: 250,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      p: 3,
+                      borderRadius: 3,
+                      bgcolor: "background.paper",
+                      boxShadow: 12,
+                      minWidth: 280,
+                      maxWidth: 400,
+                      width: "90%",
+                    }}
+                  >
+                    <TrumpSelector
+                      isChooser={username === trumpChooser}
+                      chooserName={trumpChooser}
+                      onSelectTrump={selectTrump}
+                    />
+                  </Box>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+
+      {/* ── Game over ── */}
+      {gameOver && (
+        <Box
+          sx={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            p: 2,
+          }}
+        >
+          <Box sx={{ width: "100%", maxWidth: 600 }}>
+            <GameOverScreen
+              finalScores={finalScores}
+              history={history}
+              historyOpen={historyOpen}
+              onToggle={() => setHistoryOpen((o) => !o)}
+            />
+          </Box>
+        </Box>
+      )}
+
+      {/* ── Animation overlays ── */}
+      {dealingOverlay}
       {flyingCards.map((fc) => (
         <FlyingCard
           key={fc.id}
@@ -519,317 +808,8 @@ const GameRoom: React.FC = () => {
           onComplete={() => handleFlyingCardComplete(fc.id, fc.player)}
         />
       ))}
-    </>
-  );
 
-  // ── Pre-game screens ──────────────────────────────────────────────────────
-  if (!joined) {
-    return (
-      <>
-        <Box
-          sx={{
-            height: "100vh",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: "background.default",
-            gap: 4,
-            px: 2,
-          }}
-        >
-          {/* Hero section */}
-          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1.5 }}>
-            <Image
-              src="/coffeecoders_logo.png"
-              alt="Coffee Coders"
-              width={72}
-              height={72}
-              style={{ objectFit: "contain" }}
-            />
-            <Typography variant="h3" fontWeight={800} color="primary.main" lineHeight={1}>
-              532 Cards
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              A card game for 3 players
-            </Typography>
-          </Box>
-
-          {/* Input card */}
-          <Box
-            sx={{
-              p: 4,
-              borderRadius: 3,
-              bgcolor: "background.paper",
-              boxShadow: 6,
-              width: "100%",
-              maxWidth: 400,
-            }}
-          >
-            <JoinForm
-              username={username}
-              room={room}
-              onUsernameChange={setUsername}
-              onRoomChange={setRoom}
-              onJoin={joinRoom}
-            />
-          </Box>
-        </Box>
-        {animationOverlays}
-      </>
-    );
-  }
-
-  if (joined && phase === "lobby") {
-    return (
-      <>
-        <Box
-          sx={{
-            height: "100vh",
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: "background.default",
-            px: 2,
-          }}
-        >
-          <Box
-            sx={{
-              p: 4,
-              borderRadius: 3,
-              bgcolor: "background.paper",
-              boxShadow: 6,
-              width: "100%",
-              maxWidth: 440,
-            }}
-          >
-            <Typography variant="h5" fontWeight={700} gutterBottom>
-              532 Cards
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2.5 }}>
-              Room: {room}
-            </Typography>
-            <Lobby
-              roomUsers={roomUsers}
-              username={username}
-              isHost={isHost}
-              onStartGame={startGame}
-            />
-          </Box>
-        </Box>
-        {animationOverlays}
-      </>
-    );
-  }
-
-  if (gameOver) {
-    return (
-      <>
-        <Box
-          sx={{
-            height: "100vh",
-            overflow: "hidden",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: "background.default",
-            p: 2,
-          }}
-        >
-          <Box sx={{ width: "100%", maxWidth: 600 }}>
-            <GameOverScreen
-              finalScores={finalScores}
-              history={history}
-              historyOpen={historyOpen}
-              onToggle={() => setHistoryOpen((o) => !o)}
-            />
-          </Box>
-        </Box>
-        {animationOverlays}
-      </>
-    );
-  }
-
-  // ── Trump selection ────────────────────────────────────────────────────────
-  if (phase === "trump_selection") {
-    return (
-      <>
-        <Box
-          sx={{
-            height: "100vh",
-            overflow: "hidden",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            bgcolor: "background.default",
-            gap: 3,
-            p: 3,
-          }}
-        >
-          <Typography variant="subtitle2" color="text.secondary">
-            First 5 cards dealt — pick the trump suit
-          </Typography>
-          <Box ref={myHandRef} sx={{ width: "100%", alignSelf: "stretch" }}>
-            <MyHand
-              myCards={myCards}
-              currentTurn=""
-              username={username}
-              handCards={{}}
-              onPlayCard={() => {}}
-            />
-          </Box>
-          <TrumpSelector
-            isChooser={username === trumpChooser}
-            chooserName={trumpChooser}
-            onSelectTrump={selectTrump}
-          />
-        </Box>
-        {animationOverlays}
-      </>
-    );
-  }
-
-  // ── Playing phase ──────────────────────────────────────────────────────────
-  return (
-    <>
-      <Box
-        sx={{
-          height: "100vh",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          bgcolor: "background.default",
-        }}
-      >
-        {/* Top info bar */}
-        <TopHUD
-          roundNumber={roundNumber}
-          trumpSuit={trumpSuit}
-          currentTurn={currentTurn}
-          username={username}
-        />
-
-        {/* Row: game column + optional desktop history column */}
-        <Box
-          sx={{
-            flex: 1,
-            minHeight: 0,
-            display: "flex",
-            flexDirection: "row",
-            overflow: "hidden",
-            width: "100%",
-          }}
-        >
-          {/* Game column — table + dock + mobile history */}
-          <Box
-            sx={{
-              flex: 1,
-              minHeight: 0,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              overflow: "hidden",
-            }}
-          >
-            {/* Table — natural size, does not flex-grow */}
-            <Box
-              sx={{
-                flexShrink: 0,
-                display: "flex",
-                justifyContent: "center",
-                width: "100%",
-              }}
-            >
-              <GameTable
-                ref={gameTableRef}
-                centerPlayRef={centerPlayRef}
-                players={players}
-                username={username}
-                otherCardCounts={otherCardCounts}
-                scores={scores}
-                currentTurn={currentTurn}
-                handCards={handCards}
-                handResultMsg={handResultMsg}
-                flyingPlayers={flyingPlayers}
-              />
-            </Box>
-
-            {/* Stacked dock: avatar row above card fan — flexShrink:0, sits directly below table */}
-            <Box sx={{ flexShrink: 0, width: "100%", pt: 1 }}>
-              {/* Avatar row — centered */}
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  pb: 0.5,
-                }}
-              >
-                <PlayerSpot
-                  isSelf
-                  horizontal
-                  username={username}
-                  cardCount={0}
-                  score={scores[username] ?? 0}
-                  isCurrentTurn={currentTurn === username}
-                />
-              </Box>
-
-              {/* Card fan — full width */}
-              <Box ref={myHandRef} sx={{ width: "100%" }}>
-                <MyHand
-                  myCards={myCards}
-                  currentTurn={currentTurn}
-                  username={username}
-                  handCards={handCards}
-                  onPlayCard={playCard}
-                  getCardPlayable={getCardPlayable}
-                  hidden={dealingAnimation === "final"}
-                />
-              </Box>
-            </Box>
-
-            {/* Mobile: collapsible below hand fan */}
-            {history.length > 0 && !isDesktop && (
-              <Box sx={{ flexShrink: 0, width: "100%", px: 2, pt: 1 }}>
-                <HandHistory
-                  history={history}
-                  historyOpen={historyOpen}
-                  onToggle={() => setHistoryOpen((o) => !o)}
-                />
-              </Box>
-            )}
-          </Box>
-
-          {/* Desktop: history column — natural sibling, no z-index needed */}
-          {history.length > 0 && isDesktop && (
-            <Box
-              sx={{
-                width: 320,
-                flexShrink: 0,
-                overflowY: "auto",
-                borderLeft: "1px solid",
-                borderColor: "divider",
-                bgcolor: "background.paper",
-                p: 2,
-              }}
-            >
-              <HandHistory
-                history={history}
-                historyOpen={historyOpen}
-                onToggle={() => setHistoryOpen((o) => !o)}
-              />
-            </Box>
-          )}
-        </Box>
-      </Box>
-      {animationOverlays}
-    </>
+    </Box>
   );
 };
 
