@@ -12,25 +12,31 @@ interface JoinFormProps {
 }
 
 const JoinForm: React.FC<JoinFormProps> = ({ username, room, onUsernameChange, onRoomChange, onJoin }) => (
-  <Stack direction="row" spacing={2}>
+  <Stack direction="column" spacing={2}>
     <TextField
+      id="username-field"
       label="Username"
       value={username}
-      size="small"
       fullWidth
       onChange={(e) => onUsernameChange(e.target.value)}
       onKeyDown={(e) => { if (e.key === "Enter") onJoin(); }}
     />
     <TextField
+      id="room-field"
       label="Room"
       value={room}
-      size="small"
       fullWidth
       onChange={(e) => onRoomChange(e.target.value)}
       onKeyDown={(e) => { if (e.key === "Enter") onJoin(); }}
     />
-    <Button variant="contained" onClick={onJoin} disabled={!username}>
-      Join
+    <Button
+      variant="contained"
+      fullWidth
+      size="large"
+      onClick={onJoin}
+      disabled={!username}
+    >
+      Join Game
     </Button>
   </Stack>
 );
